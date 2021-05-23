@@ -13,6 +13,7 @@
 
 #pragma newdecls required
 
+#define TEAM_CLASSNAME "tf_team"
 
 //bool//
 bool bEnable;
@@ -36,6 +37,8 @@ bool bWaitingForPlayers;
 //Handle//
 Handle hTimer;
 Handle Hhud;
+Handle g_hSDKTeamAddPlayer;
+Handle g_hSDKTeamRemovePlayer;
 //////////
 
 //Convar//
@@ -88,6 +91,24 @@ public void OnPluginStart()
 	TopMenu topmenu;
 	if(LibraryExists("adminmenu") && ((topmenu = GetAdminTopMenu()) != null))
 		OnAdminMenuReady(topmenu);
+
+	Handle hGameData = LoadGameConfigFile("tf2.changeteam");
+
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CTeam::AddPlayer");
+	PrepSDKCall_AddParameter(SDKType_CBasePlayer, SDKPass_Pointer);
+	g_hSDKTeamAddPlayer = EndPrepSDKCall();
+	if(g_hSDKTeamAddPlayer == INVALID_HANDLE)
+		SetFailState("Could not find CTeam::AddPlayer!");
+
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CTeam::RemovePlayer");
+	PrepSDKCall_AddParameter(SDKType_CBasePlayer, SDKPass_Pointer);
+	g_hSDKTeamRemovePlayer = EndPrepSDKCall();
+	if(g_hSDKTeamRemovePlayer == INVALID_HANDLE)
+		SetFailState("Could not find CTeam::RemovePlayer!");
+
+	delete hGameData;
 
 }
 
@@ -220,11 +241,28 @@ public void OnAdminMenuReady(Handle topmenu)
 
 }
 
+void SDK_Team_AddPlayer(int iTeam, int iClient)
+{
+    if (g_hSDKTeamAddPlayer != INVALID_HANDLE)
+    {
+        SDKCall(g_hSDKTeamAddPlayer, iTeam, iClient);
+    }
+}
+
+void SDK_Team_RemovePlayer(int iTeam, int iClient)
+{
+    if (g_hSDKTeamRemovePlayer != INVALID_HANDLE)
+    {
+        SDKCall(g_hSDKTeamRemovePlayer, iTeam, iClient);
+    }
+}
+
 public Action UserMessageRename(UserMsg msg_id, BfRead msg, const int[] players, int playersNum, bool reliable, bool init)
 {
 	char sMessage[96];
 	msg.ReadString(sMessage, sizeof(sMessage));
 	msg.ReadString(sMessage, sizeof(sMessage));
+
 	if (StrContains(sMessage, "Name_Change") != -1) {
 		return Plugin_Handled;
 	}
@@ -477,7 +515,7 @@ public void OnMapStart()
 {
 	bMusicPlayed = false;
 	bWaitingForPlayers = false;
-	
+
 	PrecacheSound(cMusic, true);
 	PrecacheSound("weapons/pan/melee_frying_pan_01.wav", true);
 }
@@ -491,7 +529,7 @@ public void OnClientPutInServer(int client)
 	bCanBeRobin2[client] = false;
 	bIsThirdPerson[client] = false;
 	bBuildingsDisabled[client] = false;
-	
+		
 	GetClientName(client, SaveNameDebug[client],sizeof(SaveNameDebug[]));
 }
 
@@ -1215,27 +1253,13 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 					if(bCanAttackEveryone)
 					{
 						iLastClientTeam[client] = GetEntProp(client, Prop_Send, "m_iTeamNum");
-						float fOrigin[3], fAngles[3];
-
-						GetClientAbsOrigin(client, fOrigin);
-						GetClientEyeAngles(client, fAngles);
 						
 						if(IsMannVsMachineMode())
-						{
-							TF2_ChangeClientTeam(client, TFTeam_Spectator);
-							SetEntProp(client, Prop_Send, "m_iTeamNum", 0);
-							TF2_RespawnPlayer(client);
-							TeleportEntity(client, fOrigin, fAngles, NULL_VECTOR);
-							SetEntProp(client, Prop_Send, "m_iTeamNum", 1);
-						}
+							TF2_ChangeClientTeamEx(client, view_as<int>(TFTeam_Spectator));
+
 						else
-						{
-							TF2_ChangeClientTeam(client, TFTeam_Unassigned);
-							TF2_RespawnPlayer(client);
-							TeleportEntity(client, fOrigin, fAngles, NULL_VECTOR);
-						}
-						
-						IsInSpawn[client] = false;
+							TF2_ChangeClientTeamEx(client, view_as<int>(TFTeam_Unassigned));
+
 					}
 					
 					for(int i = 0; i <= MaxClients; i++)
@@ -1292,21 +1316,7 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 			SetEntProp(client, Prop_Send, "m_bGlowEnabled", 0);
 			
 			if(GetEntProp(client, Prop_Send, "m_iTeamNum") == 1 || !GetEntProp(client, Prop_Send, "m_iTeamNum"))
-			{
-				float fOrigin[3], fAngles[3];
-				
-				GetClientAbsOrigin(client, fOrigin);
-				GetClientEyeAngles(client, fAngles);
-				
-				TF2_ChangeClientTeam(client, view_as<TFTeam>(iLastClientTeam[client]));	
-				if(IsMannVsMachineMode())
-				{
-					TF2_RespawnPlayer(client);
-					TeleportEntity(client, fOrigin, fAngles, NULL_VECTOR);
-				}
-				
-				IsInSpawn[client] = false;
-			}
+				TF2_ChangeClientTeam(client, view_as<TFTeam>(iLastClientTeam[client]));
 
 			if(bForceSoldier)
 			{
@@ -1414,6 +1424,25 @@ void PlaySound(bool enabled)
 			delete hTimer;
 		}
 	}
+}
+
+// Credit to Benoist3012
+void TF2_ChangeClientTeamEx(int iClient, int iNewTeamNum)
+{
+	int iTeamNum = GetEntProp(iClient, Prop_Send, "m_iTeamNum");
+
+	// Safely swap team
+	int iTeam = MaxClients+1;
+	while ((iTeam = FindEntityByClassname(iTeam, TEAM_CLASSNAME)) != -1)
+	{
+		int iAssociatedTeam = GetEntProp(iTeam, Prop_Send, "m_iTeamNum");
+		if (iAssociatedTeam == iTeamNum)
+			SDK_Team_RemovePlayer(iTeam, iClient);
+		else if (iAssociatedTeam == iNewTeamNum)
+			SDK_Team_AddPlayer(iTeam, iClient);
+	}
+
+	SetEntProp(iClient, Prop_Send, "m_iTeamNum", iNewTeamNum);
 }
 
 /////////*****SDKHOOKS*****/////////
@@ -1677,4 +1706,8 @@ stock int TF2Items_GiveWeapon(int client, char[] strName, int Index, int Level =
 
 	int iEntity = TF2Items_GiveNamedItem(client, hWeapon);
 
-	EquipPlayerWeapon(client, iEntity)
+	EquipPlayerWeapon(client, iEntity);
+	CloseHandle(hWeapon);
+
+	return iEntity;
+}
