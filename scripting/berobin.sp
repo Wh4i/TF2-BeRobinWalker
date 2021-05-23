@@ -17,8 +17,6 @@
 //bool//
 bool bEnable;
 bool bIsRobin[MAXPLAYERS+1];
-bool bMusicPrecached;
-bool bSoundPrecached;
 bool bMusicPlayed;
 bool bForceSoldier;
 bool bCanChangeClass;
@@ -477,20 +475,11 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnMapStart()
 {
-	bMusicPrecached = false;
 	bMusicPlayed = false;
-	bSoundPrecached = false;
 	bWaitingForPlayers = false;
 	
 	PrecacheSound(cMusic, true);
 	PrecacheSound("weapons/pan/melee_frying_pan_01.wav", true);
-	
-	if(IsSoundPrecached(cMusic))
-		bMusicPrecached = true;
-	
-	if(IsSoundPrecached("weapons/pan/melee_frying_pan_01.wav"))
-		bSoundPrecached = true;
-	
 }
 
 public void OnClientPutInServer(int client)
@@ -508,9 +497,7 @@ public void OnClientPutInServer(int client)
 
 public void OnMapEnd()
 {
-	bMusicPrecached = false;
 	bMusicPlayed = false;
-	bSoundPrecached = false;
 	bWaitingForPlayers = false;
 }
 
@@ -698,17 +685,16 @@ public Action Command_CondMenu(int client, int args)
 public void DisplayRobinMenu(int client)
 {
 	int iNumRobin = GetRobinCount();
-	char RobinCount[48], MusicPrecached[32], MusicEnabled[32];
+	char RobinCount[48], MusicEnabled[32];
 		
 	Format(RobinCount, sizeof(RobinCount), "Robin Players : %i [Click to reset]", iNumRobin);
-	Format(MusicPrecached, sizeof(MusicPrecached), "Music Precached : %s", (bMusicPrecached ? "Yes" : "No"));
 	Format(MusicEnabled, sizeof(MusicEnabled), "Music is playing : %s", (bMusicPlayed ? "Yes" : "No"));
 		
 	Menu menu = new Menu(MenuHandler);
 	menu.SetTitle("Robin Menu");
 	menu.AddItem("RobinPlayers", RobinCount);
 	menu.AddItem("RenameRobin", "Set default player name");
-	menu.AddItem("MusicPrecached", MusicPrecached);
+	menu.AddItem("MusicPrecached", "Precache the Music");
 	menu.AddItem("MusicEnable", MusicEnabled);
 	menu.ExitButton = true;
 	menu.Display(client, MENU_TIME_FOREVER);
@@ -813,18 +799,9 @@ public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
 			}
 			else if(StrEqual(info, "MusicPrecached", false))
 			{
-				if(bMusicPrecached)
-				{
-					PrintCenterText(param1, "Music already precached");
-					CreateTimer(0.0, FirstMenu, param1);
-				}
-				else
-				{
-					menu.SetTitle("Precache the Music ?");
-					menu.AddItem("Precache", "Yes");
-					menu.AddItem("Nothing", "No");
-					
-				}
+				PrecacheSound(cMusic);
+				CreateTimer(0.0, FirstMenu, param1);
+				PrintCenterText(param1, "Music precached");
 			}
 			else if(StrEqual(info, "MusicEnable", false))
 			{
@@ -880,22 +857,6 @@ public int MenuHandle1(Menu hMenu, MenuAction action, int param1, int param2)
 				PlaySound(true);
 				PrintCenterText(param1, "Music played");
 				CreateTimer(0.0, PlayStopMenu, param1);
-			}
-			
-			else if(StrEqual(info, "Precache", false))
-			{
-				PrecacheSound(cMusic);
-				
-				if(IsSoundPrecached(cMusic))
-				{
-					PrintCenterText(param1, "Success, music precached !");
-					DisplayRobinMenu(param1);
-				}
-				else
-				{
-					PrintCenterText(param1, "Failed to precache the music");
-					DisplayRobinMenu(param1);
-				}
 			}
 			else if(StrEqual(info, "nothing", false))
 			{
@@ -1313,14 +1274,8 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 			else
 				CReplyToCommand(admin, "{red}[SM] He is already the {yellow}TF2 creator");
 
-			if(bSoundPrecached)	//Just a thing...
-			{
-				SlapPlayer(admin, 0, false);
-				EmitSoundToClient(admin, "weapons/pan/melee_frying_pan_01.wav");
-			}
-			else
-				SlapPlayer(admin, 0, true);
-
+			SlapPlayer(admin, 0, false);
+			EmitSoundToClient(admin, "weapons/pan/melee_frying_pan_01.wav");
 		}
 	}
 	else
@@ -1410,13 +1365,8 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 					
 			if(IsPlayerAlive(admin))
 			{
-				if(bSoundPrecached)
-				{
-					SlapPlayer(admin, 0, false);
-					EmitSoundToClient(admin, "weapons/pan/melee_frying_pan_01.wav");
-				}
-				else
-					SlapPlayer(admin, 0, true);
+				SlapPlayer(admin, 0, false);
+				EmitSoundToClient(admin, "weapons/pan/melee_frying_pan_01.wav");
 			}
 		}
 	}
@@ -1449,16 +1399,10 @@ void PlaySound(bool enabled)
 	{
 		if(!bMusicPlayed)	//If the music is not already played
 		{	
-			if(bMusicPrecached)
-			{
-				EmitSoundToAll(cMusic);
-				bMusicPlayed = enabled;
-				//[example] hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive 
-				hTimer = CreateTimer(fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
-			}
-			else
-				LogError("Cannot precache the sound file...");
-				
+			EmitSoundToAll(cMusic);
+			bMusicPlayed = enabled;
+			//[example] hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive 
+			hTimer = CreateTimer(fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
 		}
 	}
 	else
@@ -1733,8 +1677,4 @@ stock int TF2Items_GiveWeapon(int client, char[] strName, int Index, int Level =
 
 	int iEntity = TF2Items_GiveNamedItem(client, hWeapon);
 
-	EquipPlayerWeapon(client, iEntity);
-	CloseHandle(hWeapon);
-	
-	return iEntity;
-}
+	EquipPlayerWeapon(client, iEntity)
