@@ -1520,7 +1520,9 @@ public Action CanReplaySound(Handle timer)
 	{
 		EmitSoundToAll(cMusic);
 		bMusicPlayed = true;
+		return Plugin_Continue;
 	}
+	return Plugin_Stop;
 }
 
 public Action TimerMusic(Handle timer)
