@@ -53,7 +53,7 @@ ConVar hConserveBuildings;
 //////////
 
 //Others//
-char cMusic[32];
+char cMusic[64];
 float fSoundDuration;
 char SaveName[MAXPLAYERS+1][MAX_NAME_LENGTH];
 char SaveNameDebug[MAXPLAYERS+1][MAX_NAME_LENGTH];
