@@ -9,7 +9,7 @@
 #include <multicolors>
 #include <adminmenu>
 
-#define PLUGIN_VERSION "1.7.0"
+#define PLUGIN_VERSION "1.7.9"
 
 #pragma newdecls required
 
