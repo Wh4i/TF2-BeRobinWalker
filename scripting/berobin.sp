@@ -16,53 +16,52 @@
 #define TEAM_CLASSNAME "tf_team"
 
 //bool//
-bool bEnable;
-bool bIsRobin[MAXPLAYERS+1];
-bool bMusicPrecached;
-bool bMusicPlayed;
-bool bForceSoldier;
-bool bCanChangeClass;
-bool bCanChangeTeam;
-bool bCanAttackEveryone;
-bool bConserveBuildings;
-bool bisSoldier[MAXPLAYERS+1];
-bool bIsRenamedClient[MAXPLAYERS+1];
-bool bCanBeRobin[MAXPLAYERS+1];
-bool bCanBeRobin2[MAXPLAYERS+1];
-bool bIsThirdPerson[MAXPLAYERS+1];
-bool IsInSpawn[MAXPLAYERS+1];
-bool bBuildingsDisabled[MAXPLAYERS+1];
-bool bWaitingForPlayers;
-bool bIsMusicEmpty = true;
+bool g_bEnable;
+bool g_bIsRobin[MAXPLAYERS+1];
+bool g_bMusicPrecached;
+bool g_bMusicPlayed;
+bool g_bForceSoldier;
+bool g_bCanChangeClass;
+bool g_bCanChangeTeam;
+bool g_bCanAttackEveryone;
+bool g_bConserveBuildings;
+bool g_bIsSoldier[MAXPLAYERS+1];
+bool g_bIsRenamedClient[MAXPLAYERS+1];
+bool g_bCanBeRobin[MAXPLAYERS+1];
+bool g_bCanBeRobin2[MAXPLAYERS+1];
+bool g_bIsInThirdPerson[MAXPLAYERS+1];
+bool g_bIsInSpawn[MAXPLAYERS+1];
+bool g_bBuildingsDisabled[MAXPLAYERS+1];
+bool g_bWaitingForPlayers;
+bool g_bIsMusicEmpty = true;
 ////////
 
 //Handle//
-Handle hTimer;
-Handle Hhud;
+Handle g_hTimer;
+Handle g_Hhud;
 Handle g_hSDKTeamAddPlayer;
 Handle g_hSDKTeamRemovePlayer;
 //////////
 
 //Convar//
-ConVar hEnable;
-ConVar hMusic;
-ConVar hSoundDuration;
-ConVar hForceSoldier;
-ConVar hCanChangeClass;
-ConVar hCanChangeTeam;
-ConVar hCanAttackEveryone;
-ConVar hConserveBuildings;
+ConVar g_hEnable;
+ConVar g_hMusic;
+ConVar g_hSoundDuration;
+ConVar g_hForceSoldier;
+ConVar g_hCanChangeClass;
+ConVar g_hCanChangeTeam;
+ConVar g_hCanAttackEveryone;
+ConVar g_hConserveBuildings;
 //////////
 
 //Others//
-char cMusic[256];
-float fSoundDuration;
-char SaveName[MAXPLAYERS+1][MAX_NAME_LENGTH];
-char SaveNameDebug[MAXPLAYERS+1][MAX_NAME_LENGTH];
-int iLastClientClass[MAXPLAYERS+1];
-int iLastClientTeam[MAXPLAYERS+1];
-UserMsg iSay_Text;
-TopMenu hTopMenu;
+char g_cMusic[256];
+float g_fSoundDuration;
+char g_SaveName[MAXPLAYERS+1][MAX_NAME_LENGTH];
+char g_SaveNameDebug[MAXPLAYERS+1][MAX_NAME_LENGTH];
+int g_iLastClientClass[MAXPLAYERS+1];
+int g_iLastClientTeam[MAXPLAYERS+1];
+TopMenu g_hTopMenu;
 //////////
 
 public Plugin myinfo =
@@ -80,15 +79,14 @@ public void OnPluginStart()
 	RegisterCvars();
 	RegisterCmdLisners();
 	HookEvents();
-	
-	iSay_Text = GetUserMessageId("SayText2");
-	HookUserMessage(iSay_Text, UserMessageRename, true);			//Hide name change
+
+	HookUserMessage(GetUserMessageId("SayText2"), UserMessageRename, true);			//Hide name change
 	
 	LoadTranslations("common.phrases");
 	
 	AutoExecConfig(true, "be-robinwalker");
 	
-	Hhud = CreateHudSynchronizer();
+	g_Hhud = CreateHudSynchronizer();
 	
 	TopMenu topmenu;
 	if(LibraryExists("adminmenu") && ((topmenu = GetAdminTopMenu()) != null))
@@ -117,7 +115,7 @@ public void OnPluginStart()
 public void OnLibraryRemoved(const char[] strName)
 {
 	if(!strcmp(strName, "adminmenu"))
-		hTopMenu = null;
+		g_hTopMenu = null;
 		
 }
 
@@ -138,29 +136,29 @@ void RegisterCvars()
 {
 	CreateConVar("sm_berobin_version", PLUGIN_VERSION, "The Version of Be Robin Walker", FCVAR_SPONLY|FCVAR_NOTIFY);
 	
-	hMusic = CreateConVar("sm_bero_sound", "ui/gamestartup26.mp3", "Music played when Robin Walker appears");
-	hMusic.AddChangeHook(ConVarChanged);
+	g_hMusic = CreateConVar("sm_bero_sound", "ui/gamestartup26.mp3", "Music played when Robin Walker appears");
+	g_hMusic.AddChangeHook(ConVarChanged);
 	
-	hSoundDuration = CreateConVar("sm_bero_soundtime", "96.5", "The duration of the chosed music", 0, true, 0.0, false);
-	hSoundDuration.AddChangeHook(ConVarChanged);
+	g_hSoundDuration = CreateConVar("sm_bero_soundtime", "96.5", "The duration of the chosed music", 0, true, 0.0, false);
+	g_hSoundDuration.AddChangeHook(ConVarChanged);
 	
-	hEnable = CreateConVar("sm_bero_enable", "1", "Enable/Disable the plugin", FCVAR_NOTIFY, true, 0.0, true, 1.0);
-	hEnable.AddChangeHook(ConVarChanged);
+	g_hEnable = CreateConVar("sm_bero_enable", "1", "Enable/Disable the plugin", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	g_hEnable.AddChangeHook(ConVarChanged);
 	
-	hForceSoldier = CreateConVar("sm_bero_forcesoldier", "1", "Force the player to be a soldier when he'll be the TF2 creator", 0, true, 0.0, true, 1.0);
-	hForceSoldier.AddChangeHook(ConVarChanged);
+	g_hForceSoldier = CreateConVar("sm_bero_forcesoldier", "1", "Force the player to be a soldier when he'll be the TF2 creator", 0, true, 0.0, true, 1.0);
+	g_hForceSoldier.AddChangeHook(ConVarChanged);
 	
-	hCanChangeClass = CreateConVar("sm_bero_canchangeclass", "0", "If the player can change class while being Robin Walker", 0, true, 0.0, true, 1.0);
-	hCanChangeClass.AddChangeHook(ConVarChanged);
+	g_hCanChangeClass = CreateConVar("sm_bero_canchangeclass", "0", "If the player can change class while being Robin Walker", 0, true, 0.0, true, 1.0);
+	g_hCanChangeClass.AddChangeHook(ConVarChanged);
 	
-	hCanChangeTeam = CreateConVar("sm_bero_canchangeteam", "0", "If the player can change team while being Robin Walker", 0, true, 0.0, true, 1.0);
-	hCanChangeTeam.AddChangeHook(ConVarChanged);
+	g_hCanChangeTeam = CreateConVar("sm_bero_canchangeteam", "0", "If the player can change team while being Robin Walker", 0, true, 0.0, true, 1.0);
+	g_hCanChangeTeam.AddChangeHook(ConVarChanged);
 	
-	hCanAttackEveryone = CreateConVar("sm_bero_canattackeveryone", "0", "Enable/Disable Robin Walker can attack everyone even his teammates", 0, true, 0.0, true, 1.0);
-	hCanAttackEveryone.AddChangeHook(ConVarChanged);
+	g_hCanAttackEveryone = CreateConVar("sm_bero_canattackeveryone", "0", "Enable/Disable Robin Walker can attack everyone even his teammates", 0, true, 0.0, true, 1.0);
+	g_hCanAttackEveryone.AddChangeHook(ConVarChanged);
 	
-	hConserveBuildings = CreateConVar("sm_bero_conservebuildings", "1", "Enable/Disable Conserve his buildings when he is Robin Walker", 0, true, 0.0, true, 1.0);
-	hConserveBuildings.AddChangeHook(ConVarChanged);
+	g_hConserveBuildings = CreateConVar("sm_bero_conservebuildings", "1", "Enable/Disable Conserve his buildings when he is Robin Walker", 0, true, 0.0, true, 1.0);
+	g_hConserveBuildings.AddChangeHook(ConVarChanged);
 }
 
 void RegisterCmdLisners()
@@ -189,66 +187,66 @@ void HookEvents()
 
 public void ConVarChanged(ConVar hConVar, const char[] strOldValue, const char[] strNewValue)
 {
-	if(hConVar == hMusic)
+	if(hConVar == g_hMusic)
 	{
-		GetConVarString(hMusic, cMusic, sizeof(cMusic));
-		bIsMusicEmpty = cMusic[0] == '\0';
-		if(!bIsMusicEmpty)
-			bMusicPrecached = PrecacheSound(cMusic, true);
+		GetConVarString(g_hMusic, g_cMusic, sizeof(g_cMusic));
+		g_bIsMusicEmpty = g_cMusic[0] == '\0';
+		if(!g_bIsMusicEmpty)
+			g_bMusicPrecached = PrecacheSound(g_cMusic, true);
 	}
 	
-	if(hConVar == hSoundDuration)
-		fSoundDuration = StringToFloat(strNewValue);
+	if(hConVar == g_hSoundDuration)
+		g_fSoundDuration = StringToFloat(strNewValue);
 		
-	if(hConVar == hEnable)
-		bEnable = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hEnable)
+		g_bEnable = view_as<bool>(StringToInt(strNewValue));
 	
-	if(hConVar == hForceSoldier)
-		bForceSoldier = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hForceSoldier)
+		g_bForceSoldier = view_as<bool>(StringToInt(strNewValue));
 	
-	if(hConVar == hCanChangeClass)
-		bCanChangeClass = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hCanChangeClass)
+		g_bCanChangeClass = view_as<bool>(StringToInt(strNewValue));
 	
-	if(hConVar == hCanAttackEveryone)
-		bCanAttackEveryone = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hCanAttackEveryone)
+		g_bCanAttackEveryone = view_as<bool>(StringToInt(strNewValue));
 	
-	if(hConVar == hCanChangeTeam)
-		bCanChangeTeam = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hCanChangeTeam)
+		g_bCanChangeTeam = view_as<bool>(StringToInt(strNewValue));
 	
-	if(hConVar == hConserveBuildings)
-		bConserveBuildings = view_as<bool>(StringToInt(strNewValue));
+	if(hConVar == g_hConserveBuildings)
+		g_bConserveBuildings = view_as<bool>(StringToInt(strNewValue));
 	
 }
 
 public void OnConfigsExecuted()
 {
-	GetConVarString(hMusic, cMusic, sizeof(cMusic));
-	bIsMusicEmpty = cMusic[0] == '\0';
-	if(!bIsMusicEmpty)
-		bMusicPrecached = PrecacheSound(cMusic, true);
+	GetConVarString(g_hMusic, g_cMusic, sizeof(g_cMusic));
+	g_bIsMusicEmpty = g_cMusic[0] == '\0';
+	if(!g_bIsMusicEmpty)
+		g_bMusicPrecached = PrecacheSound(g_cMusic, true);
 
-	fSoundDuration = hSoundDuration.FloatValue;
-	bEnable = hEnable.BoolValue;
-	bForceSoldier = hForceSoldier.BoolValue;
-	bCanChangeClass = hCanChangeClass.BoolValue;
-	bCanAttackEveryone = hCanAttackEveryone.BoolValue;
-	bCanChangeTeam = hCanChangeTeam.BoolValue;
-	bConserveBuildings = hConserveBuildings.BoolValue;
+	g_fSoundDuration = g_hSoundDuration.FloatValue;
+	g_bEnable = g_hEnable.BoolValue;
+	g_bForceSoldier = g_hForceSoldier.BoolValue;
+	g_bCanChangeClass = g_hCanChangeClass.BoolValue;
+	g_bCanAttackEveryone = g_hCanAttackEveryone.BoolValue;
+	g_bCanChangeTeam = g_hCanChangeTeam.BoolValue;
+	g_bConserveBuildings = g_hConserveBuildings.BoolValue;
 }
 
 public void OnAdminMenuReady(Handle topmenu)
 {
 	TopMenu hTop_Menu = TopMenu.FromHandle(topmenu);
 	
-	if(hTopMenu == hTop_Menu)
+	if(g_hTopMenu == hTop_Menu)
 		return;
 		
-	hTopMenu = hTop_Menu;
+	g_hTopMenu = hTop_Menu;
 	
 	
-	TopMenuObject playercommands = hTopMenu.FindCategory(ADMINMENU_PLAYERCOMMANDS);
+	TopMenuObject playercommands = g_hTopMenu.FindCategory(ADMINMENU_PLAYERCOMMANDS);
 	if(playercommands != INVALID_TOPMENUOBJECT)
-		hTopMenu.AddItem("sm_beromenu", AdminMenu_BeRobinMenu, playercommands, "sm_beromenu", ADMFLAG_ROOT);
+		g_hTopMenu.AddItem("sm_beromenu", AdminMenu_BeRobinMenu, playercommands, "sm_beromenu", ADMFLAG_ROOT);
 
 }
 
@@ -285,24 +283,24 @@ public Action UserMessageRename(UserMsg msg_id, BfRead msg, const int[] players,
 
 public Action Player_CallMedic(int client, const char[] command, int argc)
 {
-	if(bIsRobin[client])
+	if(g_bIsRobin[client])
 	{
 		char arguments[4];
 		GetCmdArgString(arguments, sizeof(arguments));
 		
 		if(StrEqual(arguments, "0 0", false))
 		{
-			if(!bIsThirdPerson[client])
+			if(!g_bIsInThirdPerson[client])
 			{
 				SetVariantInt(1);
 				AcceptEntityInput(client, "SetForcedTauntCam");
-				bIsThirdPerson[client] = true;
+				g_bIsInThirdPerson[client] = true;
 			}
 			else
 			{
 				SetVariantInt(0);
 				AcceptEntityInput(client, "SetForcedTauntCam");
-				bIsThirdPerson[client] = false;
+				g_bIsInThirdPerson[client] = false;
 			}
 			return Plugin_Handled;
 		}
@@ -312,7 +310,7 @@ public Action Player_CallMedic(int client, const char[] command, int argc)
 
 public Action Player_ChangeClassBlock(int client, const char[] command, int argc)
 {
-	if(!bCanChangeClass && bIsRobin[client])
+	if(!g_bCanChangeClass && g_bIsRobin[client])
 	{
 		CPrintToChat(client, "{red}You cannot change class while being Robin Walker");
 		return Plugin_Handled;
@@ -323,7 +321,7 @@ public Action Player_ChangeClassBlock(int client, const char[] command, int argc
 
 public Action Player_ChangeTeamBlock(int client, const char[] command, int argc)
 {
-	if(!bCanChangeTeam && bIsRobin[client])
+	if(!g_bCanChangeTeam && g_bIsRobin[client])
 	{
 		CPrintToChat(client, "{red}You cannot change team while being Robin Walker");
 		return Plugin_Handled;
@@ -339,14 +337,14 @@ public Action Player_ChangeClass(Event hEvent, const char[] cName, bool bDontBro
 	int ClassIndex = GetEventInt(hEvent, "class");
 	
 	if(ClassIndex == 3)
-		bisSoldier[iClient] = true;
+		g_bIsSoldier[iClient] = true;
 	
 	else
 	{
-		bisSoldier[iClient] = false;
+		g_bIsSoldier[iClient] = false;
 
-		if(bIsRobin[iClient])
-			if(bCanChangeClass)
+		if(g_bIsRobin[iClient])
+			if(g_bCanChangeClass)
 				SetRobinPlayer(iClient, iClient, false);
 			
 	}
@@ -356,21 +354,21 @@ public Action Player_Team(Event hEvent, const char[] cName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	
-	if(bCanChangeTeam && bIsRobin[iClient])
+	if(g_bCanChangeTeam && g_bIsRobin[iClient])
 	{
-		bIsRobin[iClient] = false;
+		g_bIsRobin[iClient] = false;
 		StopMusic();
 		CreateTimer(0.1, RemoveCond, GetClientUserId(iClient));
 		CreateTimer(0.1, RegenerateClient, GetClientUserId(iClient));
 			
-		if(bIsThirdPerson[iClient])
+		if(g_bIsInThirdPerson[iClient])
 			CPrintToChat(iClient, "[SM] Type {green}!resettp {default}to remove the thirdperson view");
 			
 		char buffer[MAX_NAME_LENGTH];
-		Format(buffer, sizeof(buffer), "%s", SaveName[iClient]);
+		Format(buffer, sizeof(buffer), "%s", g_SaveName[iClient]);
 		SetClientName(iClient, buffer);
 		
-		bIsRenamedClient[iClient] = false;
+		g_bIsRenamedClient[iClient] = false;
 	}
 
 }
@@ -379,13 +377,13 @@ public Action Player_Died(Event hEvent, const char[] cName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	
-	if(bIsRobin[iClient])	
+	if(g_bIsRobin[iClient])	
 	{
 		SetRobinPlayer(iClient, iClient, false);
 		char buffer[MAX_NAME_LENGTH];
-		Format(buffer, sizeof(buffer), "%s", SaveName[iClient]);
+		Format(buffer, sizeof(buffer), "%s", g_SaveName[iClient]);
 		SetClientName(iClient, buffer);
-		bIsRenamedClient[iClient] = false;
+		g_bIsRenamedClient[iClient] = false;
 	}
 	return Plugin_Continue;
 }
@@ -395,16 +393,16 @@ public Action Player_Spawn(Event hEvent, const char[] cName, bool bDontBroadcast
 	int iClient = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	int ClassIndex = GetEventInt(hEvent, "class");
 	
-	IsInSpawn[iClient] = true;
+	g_bIsInSpawn[iClient] = true;
 	
 	if(ClassIndex == view_as<int>(TFClass_Soldier))
-		bisSoldier[iClient] = true;
+		g_bIsSoldier[iClient] = true;
 	
 	else
 	{
-		bisSoldier[iClient] = false;
+		g_bIsSoldier[iClient] = false;
 
-		if(bIsRobin[iClient])
+		if(g_bIsRobin[iClient])
 			SetRobinPlayer(iClient, iClient, false);
 		
 	}
@@ -416,9 +414,9 @@ public Action BuildingsSapped(Event hEvent, const char[] cName, bool bDontBroadc
 	int iClient = GetClientOfUserId(GetEventInt(hEvent, "ownerid"));
 	int iObject = GetEventInt(hEvent, "object");
 	
-	if(bConserveBuildings)
+	if(g_bConserveBuildings)
 	{
-		if(bBuildingsDisabled[iClient])
+		if(g_bBuildingsDisabled[iClient])
 		{
 			switch(iObject)
 			{
@@ -450,11 +448,11 @@ public Action BuildingsSapped(Event hEvent, const char[] cName, bool bDontBroadc
 
 public Action RoundStart(Event hEvent, const char[] cName, bool bDontBroadcast)
 {
-	if(!IsMannVsMachineMode() && !bWaitingForPlayers)
+	if(!IsMannVsMachineMode() && !g_bWaitingForPlayers)
 	{
 		for(int client; client <= MaxClients; client++)
 		{
-			if(bIsRobin[client])
+			if(g_bIsRobin[client])
 			{
 				SetRobinPlayer(client, client, false);
 			}
@@ -468,7 +466,7 @@ public Action RoundEnd(Event hEvent, const char[] cName, bool bDontBroadcast)
 	{
 		for(int client; client <= MaxClients; client++)
 		{
-			if(bIsRobin[client])
+			if(g_bIsRobin[client])
 			{
 				SetRobinPlayer(client, client, false);
 			}
@@ -482,7 +480,7 @@ public Action WaveFailed(Event hEvent, const char[] cName, bool bDontBroadcast)
 	{
 		for(int client; client <= MaxClients; client++)
 		{
-			if(bIsRobin[client])
+			if(g_bIsRobin[client])
 			{
 				SetRobinPlayer(client, client, false);
 			}
@@ -501,12 +499,12 @@ public Action WeaponReset(Event hEvent, const char[] cName, bool bDontBroadcast)
 
 public void TF2_OnWaitingForPlayersStart()
 {
-	bWaitingForPlayers = true;
+	g_bWaitingForPlayers = true;
 }
 
 public void TF2_OnWaitingForPlayersEnd()
 {
-	bWaitingForPlayers = false;
+	g_bWaitingForPlayers = false;
 }
 
 public void OnEntityCreated(int entity, const char[] classname)
@@ -524,51 +522,51 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnMapStart()
 {
-	bMusicPlayed = false;
-	bWaitingForPlayers = false;
+	g_bMusicPlayed = false;
+	g_bWaitingForPlayers = false;
 
 	PrecacheSound("weapons/pan/melee_frying_pan_01.wav", true);
 }
 
 public void OnClientPutInServer(int client)
 {
-	bIsRobin[client] = false;
-	bisSoldier[client] = false;
-	bIsRenamedClient[client] = false;
-	bCanBeRobin[client] = false;
-	bCanBeRobin2[client] = false;
-	bIsThirdPerson[client] = false;
-	bBuildingsDisabled[client] = false;
+	g_bIsRobin[client] = false;
+	g_bIsSoldier[client] = false;
+	g_bIsRenamedClient[client] = false;
+	g_bCanBeRobin[client] = false;
+	g_bCanBeRobin2[client] = false;
+	g_bIsInThirdPerson[client] = false;
+	g_bBuildingsDisabled[client] = false;
 		
-	GetClientName(client, SaveNameDebug[client],sizeof(SaveNameDebug[]));
+	GetClientName(client, g_SaveNameDebug[client],sizeof(g_SaveNameDebug[]));
 }
 
 public void OnMapEnd()
 {
-	bMusicPlayed = false;
-	bWaitingForPlayers = false;
+	g_bMusicPlayed = false;
+	g_bWaitingForPlayers = false;
 }
 
 public void OnClientDisconnect(int client)
 {
-	if(bIsRobin[client])
-		bIsRobin[client] = false;
+	if(g_bIsRobin[client])
+		g_bIsRobin[client] = false;
 
 
-	bisSoldier[client] = false;
-	bIsRenamedClient[client] = false;
-	bCanBeRobin[client] = false;
-	bCanBeRobin2[client] = false;
-	bIsThirdPerson[client] = false;
-	IsInSpawn[client] = false;
-	bBuildingsDisabled[client] = false;
+	g_bIsSoldier[client] = false;
+	g_bIsRenamedClient[client] = false;
+	g_bCanBeRobin[client] = false;
+	g_bCanBeRobin2[client] = false;
+	g_bIsInThirdPerson[client] = false;
+	g_bIsInSpawn[client] = false;
+	g_bBuildingsDisabled[client] = false;
 }
 
 /////////*****COMMANDS*****/////////
 
 public Action Command_Robin(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)	//for some people who doesn't know, server console index is 0
 		{
@@ -597,7 +595,7 @@ public Action Command_Robin(int client, int args)
 
 public Action Command_NotRobin(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)
 		{
@@ -618,7 +616,7 @@ public Action Command_NotRobin(int client, int args)
 
 public Action Command_MenuRobin(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)
 		{
@@ -639,7 +637,7 @@ public Action Command_MenuRobin(int client, int args)
 
 public Action Command_RobinMenu(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)
 		{
@@ -660,7 +658,7 @@ public Action Command_RobinMenu(int client, int args)
 
 public Action Command_ResetTP(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)
 		{
@@ -671,7 +669,7 @@ public Action Command_ResetTP(int client, int args)
 		{
 			SetVariantInt(0);
 			AcceptEntityInput(client, "SetForcedTauntCam");
-			bIsThirdPerson[client] = false;
+			g_bIsInThirdPerson[client] = false;
 		}
 		if(args == 1)
 		{
@@ -683,7 +681,7 @@ public Action Command_ResetTP(int client, int args)
 				
 				SetVariantInt(0);
 				AcceptEntityInput(target, "SetForcedTauntCam");
-				bIsThirdPerson[target] = false;
+				g_bIsInThirdPerson[target] = false;
 			}
 			else
 			{
@@ -703,14 +701,14 @@ public Action Command_ResetTP(int client, int args)
 
 public Action Command_CondMenu(int client, int args)
 {
-	if(bEnable)
+	if(g_bEnable)
 	{
 		if(client == 0)
 		{
 			ReplyToCommand(client, "[SM] Cannot display menu in console server");
 			return Plugin_Handled;
 		}
-		if(!bIsRobin[client])
+		if(!g_bIsRobin[client])
 		{
 			ReplyToCommand(client, "[SM] Can only be used when you are Robin Walker");
 			return Plugin_Handled;
@@ -736,8 +734,8 @@ public void DisplayRobinMenu(int client)
 	char RobinCount[48], cPrecacheMusic[32], MusicEnabled[32];
 		
 	Format(RobinCount, sizeof(RobinCount), "Robin Players : %i [Click to reset]", iNumRobin);
-	Format(cPrecacheMusic, sizeof(cPrecacheMusic), "Music precached : %s", bMusicPrecached ? "yes" : "no");
-	Format(MusicEnabled, sizeof(MusicEnabled), "Music is playing : %s", (bMusicPlayed ? "Yes" : "No"));
+	Format(cPrecacheMusic, sizeof(cPrecacheMusic), "Music precached : %s", g_bMusicPrecached ? "yes" : "no");
+	Format(MusicEnabled, sizeof(MusicEnabled), "Music is playing : %s", (g_bMusicPlayed ? "Yes" : "No"));
 		
 	Menu menu = new Menu(MenuHandler);
 	menu.SetTitle("Robin Menu");
@@ -810,7 +808,7 @@ public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
 				{
 					for(int i = 0; i <= MaxClients; i++)
 					{
-						if(bIsRobin[i])
+						if(g_bIsRobin[i])
 						{
 							SetRobinPlayer(i, param1, false);
 							CPrintToChat(param1, "[SM] Robin Walker effect removed to every players");
@@ -831,7 +829,7 @@ public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
 				{
 					for(int i = 0; i <= MaxClients; i++)
 					{
-						if(bIsRenamedClient[i])
+						if(g_bIsRenamedClient[i])
 						{
 							char cName[MAX_NAME_LENGTH], buffer[64];
 							GetClientName(i, cName, sizeof(cName));
@@ -848,10 +846,10 @@ public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
 			}
 			else if(StrEqual(info, "MusicPrecached", false))
 			{
-				if(!bMusicPrecached)
+				if(!g_bMusicPrecached)
 				{
-					bMusicPrecached = PrecacheSound(cMusic);
-					if(bMusicPrecached)
+					g_bMusicPrecached = PrecacheSound(g_cMusic);
+					if(g_bMusicPrecached)
 						PrintCenterText(param1, "Sucess ! Music precached");
 
 					else
@@ -883,7 +881,7 @@ public int MenuHandle1(Menu hMenu, MenuAction action, int param1, int param2)
 			
 			for(int i = 0; i <= MaxClients; i++)
 			{
-				if(bIsRenamedClient[i])
+				if(g_bIsRenamedClient[i])
 				{
 					char cName[MAX_NAME_LENGTH];
 					GetClientName(i, cName, sizeof(cName));
@@ -896,7 +894,7 @@ public int MenuHandle1(Menu hMenu, MenuAction action, int param1, int param2)
 							return 0;
 						}
 						char buffer[64];
-						Format(buffer, sizeof(buffer), "%s", SaveNameDebug[target]);
+						Format(buffer, sizeof(buffer), "%s", g_SaveNameDebug[target]);
 						SetClientName(target, buffer);
 					}
 				}
@@ -946,7 +944,7 @@ public int MenuTarget(Menu hMenu, MenuAction action, int param1, int param2)
 				return 0;	//don't know if 0 worth like plugin_handled
 			}
 
-			if(bIsRobin[target])
+			if(g_bIsRobin[target])
 				SetRobinPlayer(target, param1, false);
 				
 			else
@@ -956,9 +954,9 @@ public int MenuTarget(Menu hMenu, MenuAction action, int param1, int param2)
 		}
 		case MenuAction_Cancel:
 		{
-			if (param2 == MenuCancel_ExitBack && hTopMenu)
+			if (param2 == MenuCancel_ExitBack && g_hTopMenu)
 			{
-				hTopMenu.Display(param1, TopMenuPosition_LastCategory);
+				g_hTopMenu.Display(param1, TopMenuPosition_LastCategory);
 			}
 		}
 		case MenuAction_End: delete hMenu;
@@ -1110,7 +1108,7 @@ public Action FirstMenu(Handle timer, any client)
 public Action PlayStopMenu(Handle timer, any client)
 {
 	Menu menu = new Menu(MenuHandle1);
-	menu.SetTitle("Music Status : %s", (bMusicPlayed ? "Is playing" : "Is not playing"));
+	menu.SetTitle("Music Status : %s", (g_bMusicPlayed ? "Is playing" : "Is not playing"));
 	menu.AddItem("PlayNow", "Enable (Play music now)");
 	menu.AddItem("Disable", "Disable (Stop music now)");
 	menu.ExitBackButton = true;
@@ -1170,18 +1168,18 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 {	
 	if(apply)
 	{
-		if(!bIsRobin[client])
+		if(!g_bIsRobin[client])
 		{
 			if(IsPlayerAlive(client))
 			{
-				if(bCanAttackEveryone)
+				if(g_bCanAttackEveryone)
 				{
-					if(!IsInSpawn[client])
-						bCanBeRobin2[client] = true;
+					if(!g_bIsInSpawn[client])
+						g_bCanBeRobin2[client] = true;
 						
 					else
 					{
-						bCanBeRobin2[client] = false;
+						g_bCanBeRobin2[client] = false;
 						
 						if(admin == client)
 							ReplyToCommand(admin, "[SM] You mustn't be in spawn to be Robin Walker");
@@ -1192,23 +1190,23 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 					}
 				}
 				else
-					bCanBeRobin2[client] = true;
+					g_bCanBeRobin2[client] = true;
 					
-				if(bCanBeRobin2[client])
+				if(g_bCanBeRobin2[client])
 				{
-					if(bForceSoldier)
+					if(g_bForceSoldier)
 					{
 						if(TF2_GetPlayerClass(client) == TFClass_Engineer)
 						{
 							int iEnt = -1;
 							
-							if(bConserveBuildings)
+							if(g_bConserveBuildings)
 							{
 								while((iEnt = FindEntityByClassname(iEnt, "obj_*")) != INVALID_ENT_REFERENCE)
 								{
 									if(GetEntPropEnt(iEnt, Prop_Send, "m_hBuilder") == client)
 									{		
-										if(bCanAttackEveryone)
+										if(g_bCanAttackEveryone)
 											AcceptEntityInput(iEnt, "SetBuilder", client);
 											
 										if(GetEntProp(iEnt, Prop_Send, "m_bHasSapper"))
@@ -1222,7 +1220,7 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 										SetEntityRenderColor(iEnt, 255, 255, 255, 180);
 									}
 								}
-								bBuildingsDisabled[client] = true;
+								g_bBuildingsDisabled[client] = true;
 							}
 							else
 							{
@@ -1231,26 +1229,26 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 									if(GetEntPropEnt(iEnt, Prop_Send, "m_hBuilder") == client)
 									{	
 										AcceptEntityInput(iEnt, "Kill");
-										bBuildingsDisabled[client] = false;
+										g_bBuildingsDisabled[client] = false;
 									}
 								}
 							}
 						}
 						
-						iLastClientClass[client] = GetEntProp(client, Prop_Send, "m_iClass");
+						g_iLastClientClass[client] = GetEntProp(client, Prop_Send, "m_iClass");
 							
 						TF2_SetPlayerClass(client, TFClass_Soldier);
-						bCanBeRobin[client] = true;
+						g_bCanBeRobin[client] = true;
 							
 					}
 					else
 					{
-						if(bisSoldier[client])
-							bCanBeRobin[client] = true;
+						if(g_bIsSoldier[client])
+							g_bCanBeRobin[client] = true;
 							
 						else
 						{
-							bCanBeRobin[client] = false;
+							g_bCanBeRobin[client] = false;
 								
 							if(admin == client)
 								ReplyToCommand(admin, "[SM] You must be a soldier to be Robin Walker");
@@ -1262,16 +1260,16 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 					}
 				}
 					
-				if(bCanBeRobin[client] && bCanBeRobin2[client])
+				if(g_bCanBeRobin[client] && g_bCanBeRobin2[client])
 				{
-					GetClientName(client, SaveName[client], sizeof(SaveName[]));
+					GetClientName(client, g_SaveName[client], sizeof(g_SaveName[]));
 					char buffer[64];
-					Format(buffer, sizeof(buffer), "Robin Walker (%s)", SaveName[client]);
+					Format(buffer, sizeof(buffer), "Robin Walker (%s)", g_SaveName[client]);
 					SetClientName(client, buffer);
 					
-					if(bCanAttackEveryone)
+					if(g_bCanAttackEveryone)
 					{
-						iLastClientTeam[client] = GetEntProp(client, Prop_Send, "m_iTeamNum");
+						g_iLastClientTeam[client] = GetEntProp(client, Prop_Send, "m_iTeamNum");
 						
 						if(IsMannVsMachineMode())
 							TF2_ChangeClientTeamEx(client, view_as<int>(TFTeam_Spectator));
@@ -1286,7 +1284,7 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 						if(IsValidClient(i))
 						{
 							SetHudTextParams(-1.0, 0.2, 5.0, 255, 0, 0, 0);
-							ShowSyncHudText(i, Hhud, "/!\\ Alert ! \"%s\" became Robin Walker /!\\", SaveName[client]);
+							ShowSyncHudText(i, g_Hhud, "/!\\ Alert ! \"%s\" became Robin Walker /!\\", g_SaveName[client]);
 						}
 					}
 					
@@ -1301,8 +1299,8 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 					CreateTimer(7.0, MenuNotif, GetClientUserId(client));
 					
 					PlaySound(apply);
-					bIsRenamedClient[client] = apply;
-					bIsRobin[client] = apply;
+					g_bIsRenamedClient[client] = apply;
+					g_bIsRobin[client] = apply;
 					
 				}
 			}
@@ -1323,10 +1321,10 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 	}
 	else
 	{
-		if(bIsRobin[client])
+		if(g_bIsRobin[client])
 		{
 			char buffer[MAX_NAME_LENGTH];
-			Format(buffer, sizeof(buffer), "%s", SaveName[client]);
+			Format(buffer, sizeof(buffer), "%s", g_SaveName[client]);
 			SetClientName(client, buffer);
 				
 			CreateTimer(0.1, RemoveCond, GetClientUserId(client));
@@ -1335,39 +1333,39 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 			SetEntProp(client, Prop_Send, "m_bGlowEnabled", 0);
 			
 			if(GetEntProp(client, Prop_Send, "m_iTeamNum") == 1 || !GetEntProp(client, Prop_Send, "m_iTeamNum"))
-				TF2_ChangeClientTeam(client, view_as<TFTeam>(iLastClientTeam[client]));
+				TF2_ChangeClientTeam(client, view_as<TFTeam>(g_iLastClientTeam[client]));
 
-			if(bForceSoldier)
+			if(g_bForceSoldier)
 			{
-				TF2_SetPlayerClass(client, view_as<TFClassType>(iLastClientClass[client]));
+				TF2_SetPlayerClass(client, view_as<TFClassType>(g_iLastClientClass[client]));
 				SetEntityHealth(client, 1);
 				
-				if(iLastClientClass[client] == view_as<int>(TFClass_Soldier))
-					bisSoldier[client] = true;
+				if(g_iLastClientClass[client] == view_as<int>(TFClass_Soldier))
+					g_bIsSoldier[client] = true;
 					
 				else
-					bisSoldier[client] = false;
+					g_bIsSoldier[client] = false;
 					
 			}
 			TF2_RegeneratePlayer(client);
 			
-			if(bIsThirdPerson[client])
+			if(g_bIsInThirdPerson[client])
 				CPrintToChat(client, "[SM] Type {green}!resettp {default}to remove the thirdperson view");
 			
-			bIsRenamedClient[client] = apply;
-			bIsRobin[client] = apply;
+			g_bIsRenamedClient[client] = apply;
+			g_bIsRobin[client] = apply;
 			
 			
-			if(bConserveBuildings)
+			if(g_bConserveBuildings)
 			{
-				if(bBuildingsDisabled[client])
+				if(g_bBuildingsDisabled[client])
 				{
 					int iEnt = -1;
 					while((iEnt = FindEntityByClassname(iEnt, "obj_*")) != INVALID_ENT_REFERENCE)
 					{
 						if(GetEntPropEnt(iEnt, Prop_Send, "m_hBuilder") == client)
 						{
-							if(bCanAttackEveryone)
+							if(g_bCanAttackEveryone)
 								AcceptEntityInput(iEnt, "SetBuilder", client);
 								
 							RemoveActiveSapper(iEnt);
@@ -1380,7 +1378,7 @@ void SetRobinPlayer(int client, int admin, bool apply)		//Note : admin is the pl
 							SetEntityRenderColor(iEnt, 255, 255, 255, 255);
 						}
 					}
-					bBuildingsDisabled[client] = false;
+					g_bBuildingsDisabled[client] = false;
 				}
 			}
 		}
@@ -1416,7 +1414,7 @@ void StopMusic()
 			if(IsValidClient(i))
 			{
 				SetHudTextParams(-1.0, 0.7, 5.0, 0, 0, 255, 0);
-				ShowSyncHudText(i, Hhud, "Every Robin Walker disappeared !");
+				ShowSyncHudText(i, g_Hhud, "Every Robin Walker disappeared !");
 			}
 		}
 	}
@@ -1426,16 +1424,16 @@ void PlaySound(bool enabled)
 {
 	if(enabled)
 	{
-		if(!bIsMusicEmpty)
+		if(!g_bIsMusicEmpty)
 		{
-			if(bMusicPrecached)
+			if(g_bMusicPrecached)
 			{
-				if(!bMusicPlayed)	//If the music is not already played
+				if(!g_bMusicPlayed)	//If the music is not already played
 				{
-					EmitSoundToAll(cMusic);
-					bMusicPlayed = enabled;
-					//[example] hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive
-					hTimer = CreateTimer(fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
+					EmitSoundToAll(g_cMusic);
+					g_bMusicPlayed = enabled;
+					//[example] g_hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive
+					g_hTimer = CreateTimer(g_fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
 				}
 			}
 		}
@@ -1444,9 +1442,9 @@ void PlaySound(bool enabled)
 	{
 		for(int i = 0; i <= MaxClients; i++)
 		{
-			StopSound(i, SNDCHAN_AUTO, cMusic);
-			bMusicPlayed = enabled;
-			delete hTimer;
+			StopSound(i, SNDCHAN_AUTO, g_cMusic);
+			g_bMusicPlayed = enabled;
+			delete g_hTimer;
 		}
 	}
 }
@@ -1478,7 +1476,7 @@ public Action SpawnStartTouch(int spawn, int client)
 		return;
 
 	if (IsClientConnected(client) && IsClientInGame(client))
-		IsInSpawn[client] = true;
+		g_bIsInSpawn[client] = true;
 }
 
 public Action SpawnEndTouch(int spawn, int client)
@@ -1487,7 +1485,7 @@ public Action SpawnEndTouch(int spawn, int client)
 		return;
 
 	if (IsClientConnected(client) && IsClientInGame(client))
-		IsInSpawn[client] = false;
+		g_bIsInSpawn[client] = false;
 }
 
 public void DroppedWeaponSpawn(int iEntity)
@@ -1496,7 +1494,7 @@ public void DroppedWeaponSpawn(int iEntity)
 	{
 		if(IsValidClient(i))
 		{
-			if(bIsRobin[i])
+			if(g_bIsRobin[i])
 			{
 				if(GetEntProp(iEntity, Prop_Send, "m_iAccountID") == GetSteamAccountID(i) || GetEntProp(iEntity, Prop_Send, "m_iAccountID") == 0)
 				{
@@ -1536,19 +1534,19 @@ public Action MenuNotif(Handle timer, any iUserId)
 
 public Action CanReplaySound(Handle timer)
 {
-	bMusicPlayed = false;
+	g_bMusicPlayed = false;
 	
 	int iNumRobin = GetRobinCount();
 	bool bCanRepeat = (iNumRobin > 0);
 
 	if(bCanRepeat)	//Repeat the music if there is atleast 1 player that is Robin Walker
 	{
-		if(!bIsMusicEmpty)
+		if(!g_bIsMusicEmpty)
 		{
-			if(bMusicPrecached)
+			if(g_bMusicPrecached)
 			{
-				EmitSoundToAll(cMusic);
-				bMusicPlayed = true;
+				EmitSoundToAll(g_cMusic);
+				g_bMusicPlayed = true;
 			}
 		}
 		return Plugin_Continue;
@@ -1571,7 +1569,7 @@ public Action CheckIsRobin(Handle timer, any iUserId)
 	if(!IsClientInGame(iClient))
 		return  Plugin_Stop;
 	
-	if(bIsRobin[iClient])
+	if(g_bIsRobin[iClient])
 		CreateTimer(0.1, ReplaceWeapon, iUserId);
 		
 	return Plugin_Continue;
@@ -1684,7 +1682,7 @@ stock int GetRobinCount()
 	int iCount;
 	
 	for(int i = 0; i <= MaxClients; i++)
-		if(bIsRobin[i])
+		if(g_bIsRobin[i])
 			iCount++;
 			
 	return iCount;
@@ -1695,7 +1693,7 @@ stock int GetRenamedPlayerCount()
 	int iCount;
 	
 	for(int i = 0; i <= MaxClients; i++)
-		if(bIsRenamedClient[i])
+		if(g_bIsRenamedClient[i])
 			iCount++;
 	
 	return iCount;
