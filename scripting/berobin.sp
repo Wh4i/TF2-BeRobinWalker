@@ -234,14 +234,14 @@ public void OnConfigsExecuted()
 	g_bConserveBuildings = g_hConserveBuildings.BoolValue;
 }
 
-public void OnAdminMenuReady(Handle topmenu)
+public void OnAdminMenuReady(Handle aTopMenu)
 {
-	TopMenu hTop_Menu = TopMenu.FromHandle(topmenu);
+	TopMenu hTopMenu = TopMenu.FromHandle(aTopMenu);
 	
-	if(g_hTopMenu == hTop_Menu)
+	if(g_hTopMenu == hTopMenu)
 		return;
 		
-	g_hTopMenu = hTop_Menu;
+	g_hTopMenu = hTopMenu;
 	
 	
 	TopMenuObject playercommands = g_hTopMenu.FindCategory(ADMINMENU_PLAYERCOMMANDS);
@@ -645,7 +645,7 @@ public Action Command_RobinMenu(int client, int args)
 			return Plugin_Handled;
 		}
 
-		DisplayBerobinMenu(client);
+		DisplayBeRobinTargetMenu(client);
 	}
 	else
 	{
@@ -747,22 +747,14 @@ public void DisplayRobinMenu(int client)
 	menu.Display(client, MENU_TIME_FOREVER);
 }
 
-public Action DisplayBerobinMenu(int client)
-{
-	char cName[MAX_NAME_LENGTH], buffer[64];
-	
-	Menu menu = new Menu(MenuTarget);
+public Action DisplayBeRobinTargetMenu(int client)
+{	
+	Menu menu = new Menu(MenuHandler_BeRobin);
 	menu.SetTitle("Toggle Robin effect Menu");
 	
-	for(int i = 0; i <= MaxClients; i++)
-	{
-		if(IsValidClient(i))
-		{
-			GetClientName(i, cName, sizeof(cName));
-			Format(buffer, sizeof(buffer), "%s", cName);
-			menu.AddItem(cName, buffer);
-		}
-	}
+	AddTargetsToMenu(menu, client, true, true);
+	
+	menu.ExitBackButton = true;
 	menu.ExitButton = true;
 	menu.Display(client, MENU_TIME_FOREVER);
 }
@@ -779,16 +771,13 @@ public Action DisplayMenuEffects(int client)
 
 /////////*****MENUS HANDLES*****/////////
 
-public void AdminMenu_BeRobinMenu(TopMenu hTopmenu, TopMenuAction action, TopMenuObject object_id, int param, char[] strBuffer, int iMaxLength)
+public void AdminMenu_BeRobinMenu(TopMenu hTopMenu, TopMenuAction action, TopMenuObject object_id, int iParam, char[] strBuffer, int iMaxLength)
 {
 	if (action == TopMenuAction_DisplayOption)
-	{
 		Format(strBuffer, iMaxLength, "Toggle Robin Player");
-	}
+
 	else if (action == TopMenuAction_SelectOption)
-	{
-		DisplayBerobinMenu(param);
-	}
+		DisplayBeRobinTargetMenu(iParam);
 }
 
 public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
@@ -929,35 +918,36 @@ public int MenuHandle1(Menu hMenu, MenuAction action, int param1, int param2)
 	return 0;
 }
 
-public int MenuTarget(Menu hMenu, MenuAction action, int param1, int param2)
+public int MenuHandler_BeRobin(Menu hMenu, MenuAction action, int iParam1, int iParam2)
 {
 	switch(action)
 	{
 		case MenuAction_Select:
 		{
-			char info[32];
-			hMenu.GetItem(param2, info, sizeof(info));
+			char strInfo[32];
+			hMenu.GetItem(iParam2, strInfo, sizeof(strInfo));
 			
-			int target = FindTarget(param1, info, true);
-			if(target == -1)
-			{
-				return 0;	//don't know if 0 worth like plugin_handled
-			}
+			int iUserID = StringToInt(strInfo);
+			int iTarget = GetClientOfUserId(iUserID);
 
-			if(g_bIsRobin[target])
-				SetRobinPlayer(target, param1, false);
+			if(iTarget == 0)
+				PrintToChat(iParam1, "[SM] %t", "Player no longer available");
+
+			else if (!CanUserTarget(iParam1, iTarget))
+				PrintToChat(iParam1, "[SM] %t", "Unable to target");
 				
 			else
-				SetRobinPlayer(target, param1, true);
-			
-			CreateTimer(0.0, BerobinMenu, param1);	//Create a timer because if there is not : after selecting an item, nothing happening and menu disappears
+			{
+				ShowActivity2(iParam1, "[SM] ", "Toggled Be Robin on %s", g_SaveNameDebug[iTarget]);
+				SetRobinPlayer(iTarget, iParam1, !g_bIsRobin[iTarget]);
+			}
+
+			DisplayBeRobinTargetMenu(iParam1);
 		}
 		case MenuAction_Cancel:
 		{
-			if (param2 == MenuCancel_ExitBack && g_hTopMenu)
-			{
-				g_hTopMenu.Display(param1, TopMenuPosition_LastCategory);
-			}
+			if (iParam2 == MenuCancel_ExitBack && g_hTopMenu)
+				g_hTopMenu.Display(iParam1, TopMenuPosition_LastCategory);
 		}
 		case MenuAction_End: delete hMenu;
 	}
@@ -1114,11 +1104,6 @@ public Action PlayStopMenu(Handle timer, any client)
 	menu.ExitBackButton = true;
 	menu.ExitButton = true;
 	menu.Display(client, MENU_TIME_FOREVER);
-}
-
-public Action BerobinMenu(Handle timer, any client)
-{
-	DisplayBerobinMenu(client);	//After an item selected, return to the previous menu
 }
 
 void ConditionsMenu(int client, bool OptionAdd)
