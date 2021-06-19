@@ -18,6 +18,7 @@
 //bool//
 bool bEnable;
 bool bIsRobin[MAXPLAYERS+1];
+bool bMusicPrecached;
 bool bMusicPlayed;
 bool bForceSoldier;
 bool bCanChangeClass;
@@ -32,6 +33,7 @@ bool bIsThirdPerson[MAXPLAYERS+1];
 bool IsInSpawn[MAXPLAYERS+1];
 bool bBuildingsDisabled[MAXPLAYERS+1];
 bool bWaitingForPlayers;
+bool bIsMusicEmpty = true;
 ////////
 
 //Handle//
@@ -53,7 +55,7 @@ ConVar hConserveBuildings;
 //////////
 
 //Others//
-char cMusic[64];
+char cMusic[256];
 float fSoundDuration;
 char SaveName[MAXPLAYERS+1][MAX_NAME_LENGTH];
 char SaveNameDebug[MAXPLAYERS+1][MAX_NAME_LENGTH];
@@ -138,7 +140,6 @@ void RegisterCvars()
 	
 	hMusic = CreateConVar("sm_bero_sound", "ui/gamestartup26.mp3", "Music played when Robin Walker appears");
 	hMusic.AddChangeHook(ConVarChanged);
-	GetConVarString(hMusic, cMusic, sizeof(cMusic));
 	
 	hSoundDuration = CreateConVar("sm_bero_soundtime", "96.5", "The duration of the chosed music", 0, true, 0.0, false);
 	hSoundDuration.AddChangeHook(ConVarChanged);
@@ -189,7 +190,12 @@ void HookEvents()
 public void ConVarChanged(ConVar hConVar, const char[] strOldValue, const char[] strNewValue)
 {
 	if(hConVar == hMusic)
+	{
 		GetConVarString(hMusic, cMusic, sizeof(cMusic));
+		bIsMusicEmpty = cMusic[0] == '\0';
+		if(!bIsMusicEmpty)
+			bMusicPrecached = PrecacheSound(cMusic, true);
+	}
 	
 	if(hConVar == hSoundDuration)
 		fSoundDuration = StringToFloat(strNewValue);
@@ -216,6 +222,11 @@ public void ConVarChanged(ConVar hConVar, const char[] strOldValue, const char[]
 
 public void OnConfigsExecuted()
 {
+	GetConVarString(hMusic, cMusic, sizeof(cMusic));
+	bIsMusicEmpty = cMusic[0] == '\0';
+	if(!bIsMusicEmpty)
+		bMusicPrecached = PrecacheSound(cMusic, true);
+
 	fSoundDuration = hSoundDuration.FloatValue;
 	bEnable = hEnable.BoolValue;
 	bForceSoldier = hForceSoldier.BoolValue;
@@ -516,7 +527,6 @@ public void OnMapStart()
 	bMusicPlayed = false;
 	bWaitingForPlayers = false;
 
-	PrecacheSound(cMusic, true);
 	PrecacheSound("weapons/pan/melee_frying_pan_01.wav", true);
 }
 
@@ -723,16 +733,17 @@ public Action Command_CondMenu(int client, int args)
 public void DisplayRobinMenu(int client)
 {
 	int iNumRobin = GetRobinCount();
-	char RobinCount[48], MusicEnabled[32];
+	char RobinCount[48], cPrecacheMusic[32], MusicEnabled[32];
 		
 	Format(RobinCount, sizeof(RobinCount), "Robin Players : %i [Click to reset]", iNumRobin);
+	Format(cPrecacheMusic, sizeof(cPrecacheMusic), "Music precached : %s", bMusicPrecached ? "yes" : "no");
 	Format(MusicEnabled, sizeof(MusicEnabled), "Music is playing : %s", (bMusicPlayed ? "Yes" : "No"));
 		
 	Menu menu = new Menu(MenuHandler);
 	menu.SetTitle("Robin Menu");
 	menu.AddItem("RobinPlayers", RobinCount);
 	menu.AddItem("RenameRobin", "Set default player name");
-	menu.AddItem("MusicPrecached", "Precache the Music");
+	menu.AddItem("MusicPrecached", cPrecacheMusic);
 	menu.AddItem("MusicEnable", MusicEnabled);
 	menu.ExitButton = true;
 	menu.Display(client, MENU_TIME_FOREVER);
@@ -837,9 +848,17 @@ public int MenuHandler(Menu hMenu, MenuAction action, int param1, int param2)
 			}
 			else if(StrEqual(info, "MusicPrecached", false))
 			{
-				PrecacheSound(cMusic);
+				if(!bMusicPrecached)
+				{
+					bMusicPrecached = PrecacheSound(cMusic);
+					if(bMusicPrecached)
+						PrintCenterText(param1, "Sucess ! Music precached");
+
+					else
+						PrintCenterText(param1, "Failed to precache the music");
+				}
+
 				CreateTimer(0.0, FirstMenu, param1);
-				PrintCenterText(param1, "Music precached");
 			}
 			else if(StrEqual(info, "MusicEnable", false))
 			{
@@ -1407,12 +1426,18 @@ void PlaySound(bool enabled)
 {
 	if(enabled)
 	{
-		if(!bMusicPlayed)	//If the music is not already played
-		{	
-			EmitSoundToAll(cMusic);
-			bMusicPlayed = enabled;
-			//[example] hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive 
-			hTimer = CreateTimer(fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
+		if(!bIsMusicEmpty)
+		{
+			if(bMusicPrecached)
+			{
+				if(!bMusicPlayed)	//If the music is not already played
+				{
+					EmitSoundToAll(cMusic);
+					bMusicPlayed = enabled;
+					//[example] hTimer = CreateTimer(96.0, CanReplaySound, _, TIMER_REPEAT);	= After 96s(the default music(I chosed) duration), can play a sound again and eventually repeat again if atleast a Robin player is still alive
+					hTimer = CreateTimer(fSoundDuration, CanReplaySound, _, TIMER_REPEAT);
+				}
+			}
 		}
 	}
 	else
@@ -1518,8 +1543,14 @@ public Action CanReplaySound(Handle timer)
 
 	if(bCanRepeat)	//Repeat the music if there is atleast 1 player that is Robin Walker
 	{
-		EmitSoundToAll(cMusic);
-		bMusicPlayed = true;
+		if(!bIsMusicEmpty)
+		{
+			if(bMusicPrecached)
+			{
+				EmitSoundToAll(cMusic);
+				bMusicPlayed = true;
+			}
+		}
 		return Plugin_Continue;
 	}
 	return Plugin_Stop;
