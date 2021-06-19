@@ -216,7 +216,7 @@ public void ConVarChanged(ConVar hConVar, const char[] strOldValue, const char[]
 		bCanChangeTeam = view_as<bool>(StringToInt(strNewValue));
 	
 	if(hConVar == hConserveBuildings)
-	bConserveBuildings = view_as<bool>(StringToInt(strNewValue));
+		bConserveBuildings = view_as<bool>(StringToInt(strNewValue));
 	
 }
 
